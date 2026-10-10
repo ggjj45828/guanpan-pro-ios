@@ -139,16 +139,16 @@ struct MarketChartView: View {
                 } header: { Text("\(holding.name) · \(holding.code)") }
                 if let latest {
                     Section("历史指标") {
-                        LabeledContent("最新收盘（\(latest.date)）", value: latest.close, format: .number.precision(.fractionLength(3)))
-                        if let ma20 = average(20).last?.value { LabeledContent("MA20", value: ma20, format: .number.precision(.fractionLength(3))) }
-                        if let ma60 = average(60).last?.value { LabeledContent("MA60", value: ma60, format: .number.precision(.fractionLength(3))) }
-                        if let rsi14 { LabeledContent("RSI14", value: "\(rsi14, specifier: "%.1f")") }
+                        LabeledContent("最新收盘（\(latest.date)）", value: latest.close.num(3))
+                        if let ma20 = average(20).last?.value { LabeledContent("MA20", value: ma20.num(3)) }
+                        if let ma60 = average(60).last?.value { LabeledContent("MA60", value: ma60.num(3)) }
+                        if let rsi14 { LabeledContent("RSI14", value: "\(rsi14.num(1))") }
                         if let macd {
-                            LabeledContent("MACD", value: "\(macd.line, specifier: "%.4f")")
-                            LabeledContent("信号线 / 柱", value: "\(macd.signal, specifier: "%.4f") / \(macd.histogram, specifier: "%.4f")")
+                            LabeledContent("MACD", value: "\(macd.line.num(4))")
+                            LabeledContent("信号线 / 柱", value: "\(macd.signal.num(4)) / \(macd.histogram.num(4))")
                         }
-                        if let percentile { LabeledContent("区间收盘分位", value: "\(percentile, specifier: "%.1f")%") }
-                        if let drawdown { LabeledContent("区间最大回撤", value: "\(drawdown * 100, specifier: "%.1f")%") }
+                        if let percentile { LabeledContent("区间收盘分位", value: "\(percentile.num(1))%") }
+                        if let drawdown { LabeledContent("区间最大回撤", value: "\((drawdown * 100).num(1))%") }
                     }
                 }
                 Section("日线规则提示") {
@@ -168,11 +168,11 @@ struct MarketChartView: View {
                     Button("回测当前所选区间") { runBacktest() }
                     if let result = backtestResult {
                         LabeledContent("回测区间", value: "\(result.startDate) 至 \(result.endDate)")
-                        LabeledContent("MA 策略期末资产", value: result.strategyValue, format: .currency(code: "CNY"))
-                        LabeledContent("MA 策略收益", value: result.strategyReturn, format: .percent.precision(.fractionLength(2)))
-                        LabeledContent("买入持有期末资产", value: result.holdValue, format: .currency(code: "CNY"))
-                        LabeledContent("买入持有收益", value: result.holdReturn, format: .percent.precision(.fractionLength(2)))
-                        LabeledContent("MA 策略最大回撤", value: result.maxDrawdown, format: .percent.precision(.fractionLength(2)))
+                        LabeledContent("MA 策略期末资产", value: result.strategyValue.cny())
+                        LabeledContent("MA 策略收益", value: result.strategyReturn.pct(2))
+                        LabeledContent("买入持有期末资产", value: result.holdValue.cny())
+                        LabeledContent("买入持有收益", value: result.holdReturn.pct(2))
+                        LabeledContent("MA 策略最大回撤", value: result.maxDrawdown.pct(2))
                         LabeledContent("模拟委托次数", value: "\(result.orders)")
                     }
                     if !backtestMessage.isEmpty { Text(backtestMessage).font(.footnote).foregroundStyle(.orange) }
@@ -181,7 +181,7 @@ struct MarketChartView: View {
                 }
                 Section("最近日线") {
                     ForEach(bars.suffix(20).reversed()) { bar in
-                        HStack { Text(bar.date); Spacer(); Text("收 \(bar.close, specifier: "%.3f")"); Text("高低 \(bar.high, specifier: "%.3f") / \(bar.low, specifier: "%.3f")").foregroundStyle(.secondary) }.font(.caption)
+                        HStack { Text(bar.date); Spacer(); Text("收 \(bar.close.num(3))"); Text("高低 \(bar.high.num(3)) / \(bar.low.num(3))").foregroundStyle(.secondary) }.font(.caption)
                     }
                 }
             }

@@ -69,8 +69,12 @@ final class PortfolioStore: ObservableObject {
     }
     func saveDailyBars() {
         guard let url = dailyBarsURL() else { return }
-        let rows = dailyBars.values.flatMap { $0 }.sorted { $0.code == $1.code ? $0.date < $1.date : $0.code < $1.code }
-        if let raw = try? JSONEncoder().encode(rows) { try? raw.write(to: url, options: .atomic) }
+        let allBars = dailyBars.values.flatMap { $0 }
+        let rows = allBars.sorted {
+            if $0.code == $1.code { return $0.date < $1.date }
+            return $0.code < $1.code
+        }
+        if let raw = try? JSONEncoder().encode(rows) { try? raw.write(to: url, options: Data.WritingOptions.atomic) }
     }
     func fetchDailyBars(code rawCode: String, count: Int = 640, force: Bool = false) async throws -> [DailyBar] {
         let code = rawCode.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -120,7 +124,7 @@ final class PortfolioStore: ObservableObject {
         let encoder = JSONEncoder()
         let lines = intradayBars.compactMap { try? encoder.encode($0) }
         let raw = lines.reduce(into: Data()) { result, line in result.append(line); result.append(0x0A) }
-        try? raw.write(to: url, options: .atomic)
+        try? raw.write(to: url, options: Data.WritingOptions.atomic)
     }
     func appendIntradayBars(_ bars: [IntradayBar]) {
         guard !bars.isEmpty, let url = gridBarsURL() else { return }

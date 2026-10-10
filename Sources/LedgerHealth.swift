@@ -97,7 +97,7 @@ extension PortfolioStore {
 
         if !data.cash.isFinite || data.cash < 0 {
             add(.error, "现金", "参考现金无效", "当前值：\(data.cash)")
-        } else { add(.normal, "现金", "参考现金为有效非负数", "余额：\(data.cash.formatted(.currency(code: "CNY")))。") }
+        } else { add(.normal, "现金", "参考现金为有效非负数", "余额：\(data.cash.cny())。") }
         let invalidCashFlows = data.cashFlows.filter { !$0.amount.isFinite || !$0.date.timeIntervalSince1970.isFinite }
         if !invalidCashFlows.isEmpty { add(.error, "现金", "现金流水有 \(invalidCashFlows.count) 条无效记录", "检查金额与日期。") }
         let duplicateCashIDs = duplicates(data.cashFlows.map { $0.id.uuidString })

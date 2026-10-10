@@ -30,9 +30,9 @@ struct DashboardView: View {
         NavigationStack {
             List {
                 Section("账户概览") {
-                    LabeledContent("总资产", value: store.totalAsset, format: .currency(code: "CNY"))
-                    LabeledContent("持仓浮盈", value: store.totalPnL, format: .currency(code: "CNY"))
-                    LabeledContent("已实现盈亏", value: store.realizedPnL, format: .currency(code: "CNY"))
+                    LabeledContent("总资产", value: store.totalAsset.cny())
+                    LabeledContent("持仓浮盈", value: store.totalPnL.cny())
+                    LabeledContent("已实现盈亏", value: store.realizedPnL.cny())
                 }
                 Section("行情状态") {
                     Label(store.sourceStatus, systemImage: "circle.fill").foregroundStyle(.secondary)
@@ -43,8 +43,8 @@ struct DashboardView: View {
                     ForEach(store.data.quotes) { q in
                         HStack {
                             Text(q.name); Spacer()
-                            Text(q.price, format: .number.precision(.fractionLength(3)))
-                            Text(q.changePct, format: .percent.precision(.fractionLength(2)))
+                            Text(q.price.num(3))
+                            Text(q.changePct.pct(2))
                                 .foregroundStyle(q.changePct >= 0 ? .red : .green)
                         }
                     }.onDelete { offsets in store.data.quotes.remove(atOffsets: offsets); store.save() }
@@ -55,7 +55,7 @@ struct DashboardView: View {
                         HStack {
                             VStack(alignment: .leading) {
                                 Text("\(alert.name) · \(alert.code)")
-                                Text("\(alert.direction == .above ? "上穿" : "下穿") \(alert.target, format: .number.precision(.fractionLength(3))) · \(alert.enabled ? "等待触发" : "已触发")")
+                                Text("\(alert.direction == .above ? "上穿" : "下穿") \(alert.target.num(3)) · \(alert.enabled ? "等待触发" : "已触发")")
                                     .font(.caption).foregroundStyle(.secondary)
                             }
                             Spacer()
@@ -139,7 +139,7 @@ struct QuoteAlertEditor: View {
                 }
                 try store.addQuoteAlert(code: code, name: name, target: value, direction: direction)
                 dismiss()
-            } catch { error = error.localizedDescription }
+            } catch let saveErr { error = saveErr.localizedDescription }
         }
     }
 }
@@ -221,7 +221,7 @@ struct HoldingsView: View {
                             HStack {
                                 VStack(alignment: .leading) {
                                     Text(plan.name)
-                                    Text("\(plan.enabled ? "运行中" : "已暂停") · \(plan.amount, format: .currency(code: "CNY")) · 费率 \((plan.feeRate ?? 0.0015) * 100, specifier: "%.2f")% · \(dcaDescription(plan)) · 已记 \(plan.processedDates.count) 期")
+                                    Text("\(plan.enabled ? "运行中" : "已暂停") · \(plan.amount.cny()) · 费率 \((plan.feeRate ?? 0.0015) * 100).num(2)% · \(dcaDescription(plan)) · 已记 \(plan.processedDates.count) 期")
                                         .font(.caption).foregroundStyle(.secondary)
                                 }
                                 Spacer()
@@ -239,7 +239,7 @@ struct HoldingsView: View {
                             ForEach(store.data.legacyDCAEvents) { event in
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text("\(event.name) · \(event.code)")
-                                    Text("\(event.dueDate) · \(event.amount, format: .currency(code: "CNY")) · \(event.status)")
+                                    Text("\(event.dueDate) · \(event.amount.cny()) · \(event.status)")
                                         .font(.caption).foregroundStyle(.secondary)
                                 }
                             }
@@ -262,16 +262,16 @@ struct HoldingsView: View {
                 }
                 ForEach(holdings) { h in
                     VStack(alignment: .leading, spacing: 7) {
-                        HStack { Text(h.name).font(.headline); Spacer(); Text(h.marketValue, format: .currency(code: "CNY")).font(.headline) }
-                        Text("\(h.code) · \(h.quantity, specifier: "%.4f") 份 · 成本 \(h.cost, specifier: kind == .fund ? "%.4f" : "%.3f") · 现价 \(h.current, specifier: kind == .fund ? "%.4f" : "%.3f")")
+                        HStack { Text(h.name).font(.headline); Spacer(); Text(h.marketValue.cny()).font(.headline) }
+                        Text("\(h.code) · \(h.quantity.num(4)) 份 · 成本 \(h.cost, specifier: kind == .fund ? "%.4f" : "%.3f") · 现价 \(h.current, specifier: kind == .fund ? "%.4f" : "%.3f")")
                             .font(.caption).foregroundStyle(.secondary)
-                        HStack { Text("成本额 \(h.quantity * h.cost, format: .currency(code: "CNY"))"); Spacer(); Text(h.pnl, format: .currency(code: "CNY")).foregroundStyle(h.pnl >= 0 ? .red : .green) }
+                        HStack { Text("成本额 \((h.quantity * h.cost).cny())"); Spacer(); Text(h.pnl.cny()).foregroundStyle(h.pnl >= 0 ? .red : .green) }
                             .font(.subheadline)
                         if kind == .fund, let latest = store.data.fundNAVHistory.filter({ $0.code == h.code }).max(by: { $0.date < $1.date }) {
                             let previous = store.data.fundNAVHistory.filter { $0.code == h.code && $0.date < latest.date }.max(by: { $0.date < $1.date })
                             if let previous {
                                 let change = (latest.nav - previous.nav) * h.quantity
-                                Text("\(latest.date) 近一期净值变化 · 按当前份额折算 \(change, format: .currency(code: "CNY"))")
+                                Text("\(latest.date) 近一期净值变化 · 按当前份额折算 \(change.cny())")
                                     .font(.caption).foregroundStyle(change >= 0 ? .red : .green)
                             } else {
                                 Text("最新净值日期：\(latest.date)").font(.caption).foregroundStyle(.secondary)
@@ -309,10 +309,10 @@ struct HoldingsView: View {
                             HStack {
                                 VStack(alignment: .leading) {
                                     Text(fundTransactionLabel(trade))
-                                    Text("\(trade.effectiveDate) · \(trade.quantity, specifier: "%.4f") 份\(trade.status == .pending ? " · 待确认" : "")")
+                                    Text("\(trade.effectiveDate) · \(trade.quantity.num(4)) 份\(trade.status == .pending ? " · 待确认" : "")")
                                         .font(.caption).foregroundStyle(.secondary)
                                 }
-                                Spacer(); Text(trade.amount, format: .currency(code: "CNY"))
+                                Spacer(); Text(trade.amount.cny())
                             }
                         }
                     } else {
@@ -324,7 +324,7 @@ struct HoldingsView: View {
                             HStack {
                                 Text(e.name); Spacer()
                                 Text(e.side == .buy ? "买入" : "卖出")
-                                Text(e.gross, format: .currency(code: "CNY"))
+                                Text(e.gross.cny())
                             }.font(.caption)
                         }
                     }
@@ -342,7 +342,7 @@ struct HoldingsView: View {
                             Button { archivedFundTarget = ArchivedFundItem(code: code, name: name) } label: {
                                 HStack {
                                     VStack(alignment: .leading) { Text(name); Text("\(trades.count) 笔流水 · 历史保留").font(.caption).foregroundStyle(.secondary) }
-                                    Spacer(); Text(realized, format: .currency(code: "CNY"))
+                                    Spacer(); Text(realized.cny())
                                 }
                             }.buttonStyle(.plain)
                         }
@@ -410,7 +410,7 @@ struct TradeCSVImportView: View {
                                     VStack(alignment: .leading, spacing: 3) {
                                         Text("第 \(draft.rowNumber) 行 · \(draft.name) · \(draft.code)")
                                         if let date = draft.date {
-                                            Text("\(date.formatted(date: .numeric, time: .omitted)) · \(draft.side == .buy ? "买入" : "卖出") · \(draft.quantity, specifier: "%.4f") × \(draft.price, specifier: "%.4f") · 费 \(draft.fee, specifier: "%.2f")")
+                                            Text("\(date.formatted(date: .numeric, time: .omitted)) · \(draft.side == .buy ? "买入" : "卖出") · \(draft.quantity.num(4)) × \(draft.price.num(4)) · 费 \(draft.fee.num(2))")
                                                 .font(.caption).foregroundStyle(.secondary)
                                         }
                                     }
@@ -475,7 +475,7 @@ struct ArchivedFundHistoryView: View {
         NavigationStack {
             List {
                 Section("收益保留") {
-                    LabeledContent("已实现盈亏", value: realized, format: .currency(code: "CNY"))
+                    LabeledContent("已实现盈亏", value: realized.cny())
                     Text("移出持仓只隐藏当前持仓，不删除流水和净值历史。基金收益日历仍可使用这些记录。")
                         .font(.footnote).foregroundStyle(.secondary)
                 }
@@ -495,9 +495,9 @@ struct ArchivedFundHistoryView: View {
                                 Spacer(); Text(trade.status == .pending ? "待确认" : "已确认")
                                     .foregroundStyle(trade.status == .pending ? .orange : .secondary)
                             }
-                            Text("生效日 \(trade.effectiveDate) · \(trade.quantity, specifier: "%.4f") 份 · 净值 \(trade.nav, specifier: "%.4f")")
+                            Text("生效日 \(trade.effectiveDate) · \(trade.quantity.num(4)) 份 · 净值 \(trade.nav.num(4))")
                                 .font(.caption).foregroundStyle(.secondary)
-                            if trade.fee > 0 { Text("费用 \(trade.fee, format: .currency(code: "CNY"))").font(.caption).foregroundStyle(.secondary) }
+                            if trade.fee > 0 { Text("费用 \(trade.fee.cny())").font(.caption).foregroundStyle(.secondary) }
                         }
                     }
                 }
@@ -529,7 +529,7 @@ struct FundBackfillView: View {
             Form {
                 DatePicker("历史持有起始日", selection: $date, in: ...Date.now, displayedComponents: .date)
                 TextField("当时总份额", text: $quantity).keyboardType(.decimalPad)
-                Text("按现有份额和已记赎回流水，系统估算的起始份额为 \(store.inferredBackfillShares(for: fund), specifier: "%.4f")。补录只建立收益日历的份额基准，不改当前持仓、不新增交易或现金。")
+                Text("按现有份额和已记赎回流水，系统估算的起始份额为 \(store.inferredBackfillShares(for: fund).num(4))。补录只建立收益日历的份额基准，不改当前持仓、不新增交易或现金。")
                     .font(.footnote).foregroundStyle(.secondary)
                 if !message.isEmpty { Text(message).foregroundStyle(.red) }
             }
@@ -697,7 +697,7 @@ struct FundDividendEditor: View {
                 if mode == .reinvest {
                     TextField("再投资净值", text: $nav).keyboardType(.decimalPad)
                     if let cash = Double(amount), let value = Double(nav), value > 0, cash > 0 {
-                        LabeledContent("增加份额", value: cash / value, format: .number.precision(.fractionLength(4)))
+                        LabeledContent("增加份额", value: (cash / value).num(4))
                     }
                 } else {
                     Toggle("计入本程序参考现金", isOn: $linkCash)
@@ -749,7 +749,7 @@ struct FundIncomeCalendarView: View {
                         Spacer(); Text(monthKey).font(.headline)
                         Spacer(); Button { monthOffset += 1 } label: { Image(systemName: "chevron.right") }
                     }
-                    LabeledContent("本月已记录日收益合计", value: total, format: .currency(code: "CNY"))
+                    LabeledContent("本月已记录日收益合计", value: total.cny())
                     Text("共 \(days.count) 个有数据的净值日。这里只展示已公布净值覆盖且有已确认申购/补录份额依据的基金。")
                         .font(.footnote).foregroundStyle(.secondary)
                 }
@@ -759,9 +759,9 @@ struct FundIncomeCalendarView: View {
                     }
                     ForEach(days.reversed()) { day in
                         VStack(alignment: .leading, spacing: 4) {
-                            HStack { Text(day.date); Spacer(); Text(day.profit, format: .currency(code: "CNY")) }
+                            HStack { Text(day.date); Spacer(); Text(day.profit.cny()) }
                                 .foregroundStyle(day.profit >= 0 ? .red : .green)
-                            Text("净值基数 \(day.baseValue, format: .currency(code: "CNY")) · \(day.fundCount) 只基金")
+                            Text("净值基数 \(day.baseValue.cny()) · \(day.fundCount) 只基金")
                                 .font(.caption).foregroundStyle(.secondary)
                         }
                     }
@@ -790,11 +790,11 @@ struct FundNAVHistoryView: View {
                 Section("已公布净值，不是盘中估值") {
                     if let latest = points.last {
                         LabeledContent("最新净值日期", value: latest.date)
-                        LabeledContent("最新净值", value: latest.nav, format: .number.precision(.fractionLength(4)))
+                        LabeledContent("最新净值", value: latest.nav.num(4))
                         if points.count > 1, let previous = points.dropLast().last {
                             let navChange = latest.nav - previous.nav
-                            LabeledContent("较上一期", value: navChange, format: .number.precision(.fractionLength(4)))
-                            LabeledContent("按当前份额折算", value: navChange * fund.quantity, format: .currency(code: "CNY"))
+                            LabeledContent("较上一期", value: navChange.num(4))
+                            LabeledContent("按当前份额折算", value: (navChange * fund.quantity).cny())
                         }
                     } else {
                         ContentUnavailableView("暂无净值历史", systemImage: "chart.xyaxis.line", description: Text("回到基金页点击“更新已公布净值”。"))
@@ -811,7 +811,7 @@ struct FundNAVHistoryView: View {
                     }
                     Section("最近净值") {
                         ForEach(points.suffix(20).reversed()) { point in
-                            HStack { Text(point.date); Spacer(); Text(point.nav, format: .number.precision(.fractionLength(4))) }
+                            HStack { Text(point.date); Spacer(); Text(point.nav.num(4)) }
                         }
                     }
                 }
@@ -985,7 +985,7 @@ struct TradeEditor: View {
         estimatedQuantity = quantity
         estimatedTradeDay = dayKey(tradeDate)
         let detail = estimate.parts.map { String(format: "%@买入 · %d天 %.2f份 × %.3f%%", $0.purchaseDate, $0.days, $0.shares, $0.ratePercent) }.joined(separator: "；")
-        feeEstimateText = "批次估算 \(estimate.total, format: .currency(code: "CNY"))：\(detail)。请与实际扣费核对后再入账。"
+        feeEstimateText = "批次估算 \(estimate.total.cny())：\(detail)。请与实际扣费核对后再入账。"
     }
 
     private func dayKey(_ date: Date) -> String {
@@ -1010,11 +1010,11 @@ struct AssetsView: View {
         NavigationStack {
             List {
                 Section("账户总览") {
-                    LabeledContent("总资产", value: store.totalAsset, format: .currency(code: "CNY"))
-                    LabeledContent("证券/基金市值", value: store.totalMarketValue, format: .currency(code: "CNY"))
-                    LabeledContent("参考现金", value: store.data.cash, format: .currency(code: "CNY"))
-                    LabeledContent("持仓浮动盈亏", value: store.totalPnL, format: .currency(code: "CNY"))
-                    LabeledContent("已实现盈亏", value: store.realizedPnL, format: .currency(code: "CNY"))
+                    LabeledContent("总资产", value: store.totalAsset.cny())
+                    LabeledContent("证券/基金市值", value: store.totalMarketValue.cny())
+                    LabeledContent("参考现金", value: store.data.cash.cny())
+                    LabeledContent("持仓浮动盈亏", value: store.totalPnL.cny())
+                    LabeledContent("已实现盈亏", value: store.realizedPnL.cny())
                     Button("记录现金转入 / 转出") { showCashFlow = true }
                 }
                 Section("历史快照") {
@@ -1026,7 +1026,7 @@ struct AssetsView: View {
                             ForEach(store.snapshotMonths, id: \.self) { Text($0).tag($0) }
                         }
                         if let summary = store.snapshotMonthSummary(selectedSnapshotMonth) {
-                            LabeledContent("区间收益（扣除净转入）", value: summary.pnl, format: .currency(code: "CNY"))
+                            LabeledContent("区间收益（扣除净转入）", value: summary.pnl.cny())
                             Text("实测区间：\(summary.start.date) → \(summary.end.date)。\(summary.complete ? "有月初前基准快照；数值截至所选月最后一条快照，不代表缺失日期的逐日收益。" : "缺少月初前基准快照，当前从本月首条快照起算，不能代表完整月收益。")")
                                 .font(.footnote).foregroundStyle(.secondary)
                         } else {
@@ -1045,11 +1045,11 @@ struct AssetsView: View {
                     ForEach(Array(sortedSnapshots.indices.reversed()), id: \.self) { index in
                         let s = sortedSnapshots[index]
                         VStack(alignment: .leading, spacing: 4) {
-                            HStack { Text(s.date); Spacer(); Text(s.total, format: .currency(code: "CNY")) }
+                            HStack { Text(s.date); Spacer(); Text(s.total.cny()) }
                             if index > 0 {
                                 let prior = sortedSnapshots[index - 1]
                                 let result = store.snapshotReturn(from: prior, to: s)
-                                Text("较上次快照收益（已扣除现金流） \(result, format: .currency(code: "CNY"))")
+                                Text("较上次快照收益（已扣除现金流） \(result.cny())")
                                     .font(.caption).foregroundStyle(result >= 0 ? .red : .green)
                             }
                         }
@@ -1064,7 +1064,7 @@ struct AssetsView: View {
                             ForEach(store.ledgerMonths, id: \.self) { Text($0).tag($0) }
                         }
                         let daily = store.ledgerDailyRealized(month: selectedLedgerMonth)
-                        LabeledContent("本月已实现盈亏", value: daily.reduce(0) { $0 + $1.profit }, format: .currency(code: "CNY"))
+                        LabeledContent("本月已实现盈亏", value: daily.reduce(0) { $0 + $1.profit }.cny())
                         if daily.isEmpty {
                             Text("本月没有已记录的 ETF / 证券卖出流水。买入和持仓浮盈不包含在这里。")
                                 .font(.footnote).foregroundStyle(.secondary)
@@ -1075,7 +1075,7 @@ struct AssetsView: View {
                                     Text(day.date)
                                     Text("\(day.trades) 笔流水").font(.caption).foregroundStyle(.secondary)
                                     Spacer()
-                                    Text(day.profit, format: .currency(code: "CNY"))
+                                    Text(day.profit.cny())
                                         .foregroundStyle(day.profit >= 0 ? .red : .green)
                                 }
                             }
@@ -1093,7 +1093,7 @@ struct AssetsView: View {
                                 Text(flow.date.formatted(date: .abbreviated, time: .shortened)).font(.caption).foregroundStyle(.secondary)
                             }
                             Spacer()
-                            Text(flow.amount, format: .currency(code: "CNY"))
+                            Text(flow.amount.cny())
                                 .foregroundStyle(flow.amount >= 0 ? .red : .green)
                         }
                     }
@@ -1124,7 +1124,7 @@ struct CashFlowEditor: View {
                 }.pickerStyle(.segmented)
                 TextField("金额", text: $amount).keyboardType(.decimalPad)
                 TextField("备注（可选）", text: $memo)
-                LabeledContent("当前参考现金", value: store.data.cash, format: .currency(code: "CNY"))
+                LabeledContent("当前参考现金", value: store.data.cash.cny())
                 if !error.isEmpty { Text(error).foregroundStyle(.red) }
                 Text("这里只记录账户外部转入/转出，用于从快照变化中剔除入金影响；不会连接券商。")
                     .font(.footnote).foregroundStyle(.secondary)
@@ -1162,40 +1162,40 @@ struct ToolsView: View {
                     Text("−10%").tag(10); Text("−20%").tag(20); Text("−30%").tag(30); Text("−50%").tag(50)
                 }.pickerStyle(.segmented)
                 let loss = store.data.holdings.reduce(0.0) { $0 + max(0, $1.marketValue) * Double(shockPercent) / 100 }
-                LabeledContent("假设持仓损失", value: loss, format: .currency(code: "CNY"))
-                LabeledContent("假设压力后总资产", value: max(0, store.totalAsset - loss), format: .currency(code: "CNY"))
+                LabeledContent("假设持仓损失", value: loss.cny())
+                LabeledContent("假设压力后总资产", value: max(0, store.totalAsset - loss).cny())
                 ForEach(Array(store.data.holdings.enumerated()), id: \.offset) { item in
                     let holding = item.element
                     let itemLoss = max(0, holding.marketValue) * Double(shockPercent) / 100
                     HStack {
                         Text(holding.name)
                         Spacer()
-                        Text("−\(itemLoss, format: .currency(code: "CNY"))").foregroundStyle(.green)
+                        Text("−\(itemLoss.cny())").foregroundStyle(.green)
                     }
                 }
                 Text("统一冲击全部当前持仓，现金不变；这是静态压力情景，不是行情预测，不包含相关性、流动性、费用或基金估值滞后。")
                     .font(.footnote).foregroundStyle(.secondary)
             }
             Section("定投资金安排") {
-                LabeledContent("未来 30 天计划投入", value: store.plannedDCAAmount(next: 30), format: .currency(code: "CNY"))
-                LabeledContent("未来 90 天计划投入", value: store.plannedDCAAmount(next: 90), format: .currency(code: "CNY"))
+                LabeledContent("未来 30 天计划投入", value: store.plannedDCAAmount(next: 30).cny())
+                LabeledContent("未来 90 天计划投入", value: store.plannedDCAAmount(next: 90).cny())
                 Text("按当前启用的定投计划和工作日估算，不检查银行卡/销售平台余额，也不扣本程序参考现金；节假日由实际净值确认后处理。")
                     .font(.footnote).foregroundStyle(.secondary)
             }
             Section("目标仓位与再平衡参考") {
                 let configured = store.data.allocationTargets.reduce(0) { $0 + $1.targetPercent }
-                LabeledContent("已配置目标合计", value: configured / 100, format: .percent.precision(.fractionLength(1)))
-                LabeledContent("未分配目标比例", value: max(0, 100 - configured) / 100, format: .percent.precision(.fractionLength(1)))
+                LabeledContent("已配置目标合计", value: (configured / 100).pct(1))
+                LabeledContent("未分配目标比例", value: (max(0, 100 - configured) / 100).pct(1))
                 ForEach(store.data.holdings) { holding in
                     let target = store.data.allocationTargets.first { $0.code == holding.code && $0.kind == holding.kind }
                     let targetPercent = target?.targetPercent ?? 0
                     let difference = store.totalAsset * targetPercent / 100 - holding.marketValue
                     VStack(alignment: .leading, spacing: 4) {
                         HStack { Text(holding.name).font(.headline); Spacer(); Button(target == nil ? "设目标" : "修改") { targetEdit = holding } }
-                        Text("当前 \(store.allocationActualPercent(for: holding), specifier: "%.1f")% · 目标 \(targetPercent, specifier: "%.1f")%")
+                        Text("当前 \(store.allocationActualPercent(for: holding).num(1))% · 目标 \(targetPercent.num(1))%")
                             .font(.caption).foregroundStyle(.secondary)
                         if target != nil {
-                            Text("偏差参考：\(difference >= 0 ? "需增加" : "可减少") \(abs(difference), format: .currency(code: "CNY"))")
+                            Text("偏差参考：\(difference >= 0 ? "需增加" : "可减少") \(abs(difference).cny())")
                                 .font(.caption).foregroundStyle(.secondary)
                         }
                     }
@@ -1386,8 +1386,8 @@ struct ETFOverlapView: View {
                 Section("覆盖情况") {
                     LabeledContent("持有 ETF", value: "\(etfs.count) 只")
                     LabeledContent("有成分快照", value: "\(covered.count) 只")
-                    LabeledContent("前十大对应市值", value: coveredWeight, format: .currency(code: "CNY"))
-                    LabeledContent("重复成分敞口合计", value: duplicates.reduce(0) { $0 + $1.exposure }, format: .currency(code: "CNY"))
+                    LabeledContent("前十大对应市值", value: coveredWeight.cny())
+                    LabeledContent("重复成分敞口合计", value: duplicates.reduce(0) { $0 + $1.exposure }.cny())
                     Text("快照日期：\(ETFConstituentLibrary.asOf)。成分权重仅限前十大，未覆盖部分不代表没有重复持仓。")
                         .font(.footnote).foregroundStyle(.secondary)
                 }
@@ -1400,7 +1400,7 @@ struct ETFOverlapView: View {
                         .foregroundStyle(.secondary) }
                     ForEach(duplicates) { item in
                         VStack(alignment: .leading, spacing: 4) {
-                            HStack { Text(item.name).font(.headline); Spacer(); Text(item.exposure, format: .currency(code: "CNY")).font(.subheadline) }
+                            HStack { Text(item.name).font(.headline); Spacer(); Text(item.exposure.cny()).font(.subheadline) }
                             Text("\(item.code) · 出现在 \(item.sources.count) 只 ETF")
                                 .font(.caption).foregroundStyle(.secondary)
                             Text(item.sources.map { String(format: "%@ %.2f%%", $0.name, $0.percent) }.joined(separator: " · "))
@@ -1490,12 +1490,12 @@ struct FundDCAReplayView: View {
                 if let result = summary {
                     Section("历史结果 · \(result.firstDate) 至 \(result.lastDate)") {
                         LabeledContent("定投次数", value: "\(result.contributions)")
-                        LabeledContent("累计投入", value: result.invested, format: .currency(code: "CNY"))
-                        LabeledContent("期末份额", value: result.shares, format: .number.precision(.fractionLength(2)))
-                        LabeledContent("按最近净值折算", value: result.value, format: .currency(code: "CNY"))
-                        LabeledContent("定投收益率", value: result.dcaReturn / 100, format: .percent.precision(.fractionLength(2)))
-                        LabeledContent("一次性买入收益率", value: result.lumpReturn / 100, format: .percent.precision(.fractionLength(2)))
-                        LabeledContent("最近已公布净值", value: result.latestNAV, format: .number.precision(.fractionLength(4)))
+                        LabeledContent("累计投入", value: result.invested.cny())
+                        LabeledContent("期末份额", value: result.shares.num(2))
+                        LabeledContent("按最近净值折算", value: result.value.cny())
+                        LabeledContent("定投收益率", value: (result.dcaReturn / 100).pct(2))
+                        LabeledContent("一次性买入收益率", value: (result.lumpReturn / 100).pct(2))
+                        LabeledContent("最近已公布净值", value: result.latestNAV.num(4))
                     }
                 } else if !funds.isEmpty {
                     Section { Text("当前净值历史不足以完成所选区间的回放，或投入金额无效。先刷新基金净值或缩短区间。")
@@ -1546,17 +1546,17 @@ struct AddCashSimulationView: View {
                 if !message.isEmpty { Section { Text(message).foregroundStyle(.orange) } }
                 if hasRun {
                     Section("预算") {
-                        LabeledContent("可投入", value: investable, format: .currency(code: "CNY"))
-                        LabeledContent("计划支出", value: spent, format: .currency(code: "CNY"))
-                        LabeledContent("剩余", value: max(0, (Double(cashText) ?? 0) - spent), format: .currency(code: "CNY"))
+                        LabeledContent("可投入", value: investable.cny())
+                        LabeledContent("计划支出", value: spent.cny())
+                        LabeledContent("剩余", value: max(0, (Double(cashText) ?? 0) - spent).cny())
                     }
                     Section("试算结果") {
                         ForEach(rows) { row in
                             VStack(alignment: .leading, spacing: 4) {
-                                HStack { Text(row.holding.name).font(.headline); Spacer(); Text(row.quantity > 0 ? "买 \(row.quantity.formatted(.number.precision(.fractionLength(0)))) 份" : row.reason).foregroundStyle(row.quantity > 0 ? .primary : .secondary) }
-                                Text("目标 \(row.targetPercent, specifier: "%.1f")% · 缺口 \(row.gap, format: .currency(code: "CNY"))")
+                                HStack { Text(row.holding.name).font(.headline); Spacer(); Text(row.quantity > 0 ? "买 \(row.quantity.num(0)) 份" : row.reason).foregroundStyle(row.quantity > 0 ? .primary : .secondary) }
+                                Text("目标 \(row.targetPercent.num(1))% · 缺口 \(row.gap.cny())")
                                     .font(.caption).foregroundStyle(.secondary)
-                                if row.quantity > 0 { Text("估算金额 \(row.amount, format: .currency(code: "CNY"))，不含或少量含手续费差异")
+                                if row.quantity > 0 { Text("估算金额 \(row.amount.cny())，不含或少量含手续费差异")
                                     .font(.caption).foregroundStyle(.secondary) }
                             }.padding(.vertical, 3)
                         }
@@ -1630,15 +1630,15 @@ struct TradePlansView: View {
                         }
                         Text("\(plan.kind == .fund ? "场外基金" : "ETF/证券") · \(plan.code) · \(plan.created)")
                             .font(.caption).foregroundStyle(.secondary)
-                        Text("计划价 \(plan.price, format: .number.precision(.fractionLength(3))) · 金额 \(plan.amount, format: .currency(code: "CNY"))")
+                        Text("计划价 \(plan.price.num(3)) · 金额 \(plan.amount.cny())")
                             .font(.subheadline)
-                        if let target = plan.target { Text("目标价 \(target, format: .number.precision(.fractionLength(3)))") }
-                        if let invalid = plan.invalid { Text("失效价 \(invalid, format: .number.precision(.fractionLength(3)))") }
+                        if let target = plan.target { Text("目标价 \(target.num(3))") }
+                        if let invalid = plan.invalid { Text("失效价 \(invalid.num(3))") }
                         if !plan.reason.isEmpty { Text("理由：\(plan.reason)").font(.footnote) }
                         if !plan.trigger.isEmpty { Text("触发条件：\(plan.trigger)").font(.footnote) }
                         if let actualPrice = plan.actualPrice, let actualAmount = plan.actualAmount {
                             let variance = (plan.side == .sell ? plan.price - actualPrice : actualPrice - plan.price) * actualAmount / actualPrice
-                            Text("执行价 \(actualPrice, format: .number.precision(.fractionLength(3))) · 相对计划偏差 \(variance, format: .currency(code: "CNY"))")
+                            Text("执行价 \(actualPrice.num(3)) · 相对计划偏差 \(variance.cny())")
                                 .font(.footnote).foregroundStyle(variance >= 0 ? .green : .orange)
                         }
                         if !plan.review.isEmpty { Text("复盘：\(plan.review)").font(.footnote).foregroundStyle(.secondary) }
@@ -1929,7 +1929,7 @@ struct AllocationTargetEditor: View {
             Form {
                 LabeledContent("标的", value: "\(holding.name) · \(holding.code)")
                 TextField("目标仓位（%）", text: $percent).keyboardType(.decimalPad)
-                Text("当前仓位 \(store.allocationActualPercent(for: holding), specifier: "%.2f")%。保存后仅计算偏差金额，不会修改持仓或现金。")
+                Text("当前仓位 \(store.allocationActualPercent(for: holding).num(2))%。保存后仅计算偏差金额，不会修改持仓或现金。")
                     .font(.footnote).foregroundStyle(.secondary)
                 if !error.isEmpty { Text(error).foregroundStyle(.red) }
                 if targetPercent != nil {
@@ -2022,10 +2022,10 @@ struct DayGridView: View {
                 }
                 if let result {
                     Section("路径模拟结果 · \(result.day)") {
-                        LabeledContent("模拟盈亏", value: result.profit, format: .currency(code: "CNY"))
+                        LabeledContent("模拟盈亏", value: result.profit.cny())
                         LabeledContent("买入 / 卖出", value: "\(result.buyCount) / \(result.sellCount) 笔")
-                        LabeledContent("估算费用", value: result.fees, format: .currency(code: "CNY"))
-                        LabeledContent("分时覆盖", value: result.coverage, format: .percent.precision(.fractionLength(0)))
+                        LabeledContent("估算费用", value: result.fees.cny())
+                        LabeledContent("分时覆盖", value: result.coverage.pct(0))
                         Text(result.fills == 0 ? "该日没有触发网格成交。若资金不足以买入 100 份一手、网格间距超出当日波动，或数据缺点，结果可能没有代表性。" : "回放按时间顺序计算，含逐笔固定费用；不含排队、成交量、滑点、涨跌停和真实券商规则。历史最佳参数会有过拟合，不能直接当作明日建议。")
                             .font(.footnote).foregroundStyle(.secondary)
                     }
@@ -2036,7 +2036,7 @@ struct DayGridView: View {
                     ForEach(store.data.dayGridPlans) { plan in
                         VStack(alignment: .leading, spacing: 4) {
                             Text("\(plan.name) · \(plan.code)").font(.headline)
-                            Text("资金 \(plan.capital, format: .number.precision(.fractionLength(0))) · 中枢 \(plan.anchor, format: .number.precision(.fractionLength(3))) · 间距 \(plan.stepPercent * 100, format: .number.precision(.fractionLength(2)))% · 每档约 \(floor(plan.capital / Double(plan.levelsEachSide * 2 + 2) / (plan.anchor * 100)) * 100, format: .number.precision(.fractionLength(0))) 份")
+                            Text("资金 \(plan.capital.num(0)) · 中枢 \(plan.anchor.num(3)) · 间距 \(plan.stepPercent * 100).num(2)% · 每档约 \(floor(plan.capital / Double(plan.levelsEachSide * 2 + 2) / (plan.anchor * 100)) * 100).num(0)) 份")
                                 .font(.caption).foregroundStyle(.secondary)
                             Button("载入参数") { loadPlan(plan) }
                             Button("删除计划", role: .destructive) { store.removeGridPlan(plan) }
@@ -2051,7 +2051,7 @@ struct DayGridView: View {
                                 Text("\(record.horizon) · \(record.mode) · \(record.status) · \(record.created)")
                                     .font(.caption).foregroundStyle(.secondary)
                                 if record.capital > 0 {
-                                    Text("计划资金 \(record.capital, format: .currency(code: "CNY")) · 原网格 \(record.lower, format: .number.precision(.fractionLength(3)))–\(record.upper, format: .number.precision(.fractionLength(3))) · 每档 \(record.quantity, format: .number.precision(.fractionLength(0))) 份")
+                                    Text("计划资金 \(record.capital.cny()) · 原网格 \(record.lower.num(3))–\(record.upper.num(3)) · 每档 \(record.quantity.num(0)) 份")
                                         .font(.caption).foregroundStyle(.secondary)
                                 }
                             }
@@ -2070,20 +2070,20 @@ struct DayGridView: View {
                                         store.setLegacyShadowActive(record, active: !record.active)
                                     }
                                 }
-                                LabeledContent("影子账户盈亏（末次行情估算）", value: record.lastEquityChange, format: .currency(code: "CNY"))
-                                LabeledContent("相对初始持有", value: record.lastEquityChange - record.holdOnlyChange, format: .currency(code: "CNY"))
-                                LabeledContent("累计已实现", value: record.realizedPnL, format: .currency(code: "CNY"))
-                                LabeledContent("估算费用", value: record.totalFees, format: .currency(code: "CNY"))
+                                LabeledContent("影子账户盈亏（末次行情估算）", value: record.lastEquityChange.cny())
+                                LabeledContent("相对初始持有", value: (record.lastEquityChange - record.holdOnlyChange).cny())
+                                LabeledContent("累计已实现", value: record.realizedPnL.cny())
+                                LabeledContent("估算费用", value: record.totalFees.cny())
                                 LabeledContent("模拟买 / 卖", value: "\(record.buys) / \(record.sells)")
                                 if record.scoredSells > 0 {
-                                    LabeledContent("旧记录卖出胜率", value: "\(Double(record.wins) / Double(record.scoredSells) * 100, format: .number.precision(.fractionLength(1)))%")
+                                    LabeledContent("旧记录卖出胜率", value: "\((Double(record.wins) / Double(record.scoredSells) * 100).num(1))%")
                                 }
                                 if !record.days.isEmpty {
                                     DisclosureGroup("每日摘要（最近 20 日）") {
                                         ForEach(Array(record.days.suffix(20).reversed())) { day in
                                             VStack(alignment: .leading, spacing: 2) {
                                                 Text(day.day)
-                                                Text("买 \(day.buys) / 卖 \(day.sells) · 费用 \(day.fees, format: .currency(code: "CNY")) · 已实现 \(day.realizedPnL, format: .currency(code: "CNY"))")
+                                                Text("买 \(day.buys) / 卖 \(day.sells) · 费用 \(day.fees.cny()) · 已实现 \(day.realizedPnL.cny())")
                                                     .font(.caption).foregroundStyle(.secondary)
                                             }
                                         }
@@ -2092,7 +2092,7 @@ struct DayGridView: View {
                                 if !record.fills.isEmpty {
                                     DisclosureGroup("成交明细（最近 20 笔，共 \(record.fills.count) 笔）") {
                                         ForEach(Array(record.fills.suffix(20).reversed())) { fill in
-                                            Text("\(fill.day) \(fill.time) · \(fill.side == "buy" ? "买" : "卖") \(fill.quantity, format: .number.precision(.fractionLength(0))) 份 @ \(fill.price, format: .number.precision(.fractionLength(3))) · 费用 \(fill.fee, format: .currency(code: "CNY"))")
+                                            Text("\(fill.day) \(fill.time) · \(fill.side == "buy" ? "买" : "卖") \(fill.quantity.num(0)) 份 @ \(fill.price.num(3)) · 费用 \(fill.fee.cny())")
                                                 .font(.caption)
                                         }
                                     }
@@ -2162,7 +2162,7 @@ struct DayGridView: View {
         if replay.fills == 0 {
             let budget = plan.capital / Double(plan.levelsEachSide * 2 + 2)
             let oneLot = plan.anchor * 100 + plan.feePerOrder
-            message = budget < oneLot ? "资金不够：每档约 \(budget, format: .currency(code: "CNY"))，按当前中枢买入 100 份约需 \(oneLot, format: .currency(code: "CNY"))。减少档数或增加计划资金后复盘。" : "数据中没有穿越网格档位；也可能是该日分时覆盖不足。"
+            message = budget < oneLot ? "资金不够：每档约 \(budget.cny())，按当前中枢买入 100 份约需 \(oneLot.cny())。减少档数或增加计划资金后复盘。" : "数据中没有穿越网格档位；也可能是该日分时覆盖不足。"
         }
     }
 }
@@ -2188,7 +2188,7 @@ struct SettingsView: View {
                     Text("跟随系统").tag(AppAppearance.system); Text("浅色").tag(AppAppearance.light); Text("深色").tag(AppAppearance.dark)
                 }
                 Section("现金账本") {
-                    LabeledContent("当前参考现金", value: store.data.cash, format: .currency(code: "CNY"))
+                    LabeledContent("当前参考现金", value: store.data.cash.cny())
                     Text("现金余额请在“资产”页记录转入/转出，保留现金流历史，避免影响快照收益计算。")
                         .font(.footnote).foregroundStyle(.secondary)
                     Toggle("交易默认联动现金", isOn: Binding(get: { store.data.cashLinkedByDefault }, set: { store.data.cashLinkedByDefault = $0; store.save() }))

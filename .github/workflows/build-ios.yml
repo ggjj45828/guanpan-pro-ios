@@ -1,0 +1,146 @@
+name: build-ios
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-device:
+    name: 真机包 (未签名 IPA)
+    runs-on: macos-latest
+    timeout-minutes: 40
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 显示编译环境
+        run: |
+          sw_vers
+          xcodebuild -version
+          xcodebuild -showsdks | grep -i iphone || true
+
+      - name: 安装 XcodeGen
+        run: |
+          if ! command -v xcodegen >/dev/null 2>&1; then
+            brew install xcodegen
+          fi
+          xcodegen --version
+
+      - name: 定位工程目录
+        run: |
+          SPEC=$(find . -name project.yml -not -path "*/build/*" -not -path "*/.git/*" | head -n 1)
+          if [ -z "$SPEC" ]; then
+            echo "::error::找不到 project.yml，请把 guanpan-pro-native 目录里的内容作为仓库根目录"
+            exit 1
+          fi
+          PROJECT_DIR=$(dirname "$SPEC")
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+          echo "工程目录：$PROJECT_DIR"
+
+      - name: 生成 Xcode 工程
+        run: |
+          cd "$PROJECT_DIR"
+          xcodegen generate
+          ls -la
+
+      - name: 编译 (真机 SDK，不签名)
+        run: |
+          cd "$PROJECT_DIR"
+          set -o pipefail
+          xcodebuild \
+            -project GuanpanProNative.xcodeproj \
+            -scheme GuanpanProNative \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGN_ENTITLEMENTS="" \
+            build
+
+      - name: 打包未签名 IPA
+        run: |
+          cd "$PROJECT_DIR"
+          APP=$(find build/Build/Products/Release-iphoneos -maxdepth 1 -name "*.app" | head -n 1)
+          if [ -z "$APP" ]; then
+            echo "::error::没有找到编译产物 .app"
+            exit 1
+          fi
+          echo "编译产物：$APP"
+          mkdir -p dist/Payload
+          cp -R "$APP" dist/Payload/
+          cd dist
+          zip -qry GuanpanPro-unsigned.ipa Payload
+          rm -rf Payload
+          ls -lh
+          shasum -a 256 GuanpanPro-unsigned.ipa
+
+      - name: 上传 IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: GuanpanPro-unsigned-ipa
+          path: ${{ env.PROJECT_DIR }}/dist/GuanpanPro-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 30
+
+  build-simulator:
+    name: 模拟器包 (借到 Mac 可直接运行)
+    runs-on: macos-latest
+    timeout-minutes: 40
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 XcodeGen
+        run: |
+          if ! command -v xcodegen >/dev/null 2>&1; then
+            brew install xcodegen
+          fi
+
+      - name: 定位工程目录
+        run: |
+          SPEC=$(find . -name project.yml -not -path "*/build/*" -not -path "*/.git/*" | head -n 1)
+          if [ -z "$SPEC" ]; then
+            echo "::error::找不到 project.yml"
+            exit 1
+          fi
+          echo "PROJECT_DIR=$(dirname "$SPEC")" >> "$GITHUB_ENV"
+
+      - name: 生成 Xcode 工程
+        run: |
+          cd "$PROJECT_DIR"
+          xcodegen generate
+
+      - name: 编译 (模拟器 SDK，不签名)
+        run: |
+          cd "$PROJECT_DIR"
+          set -o pipefail
+          xcodebuild \
+            -project GuanpanProNative.xcodeproj \
+            -scheme GuanpanProNative \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+
+      - name: 上传模拟器 App
+        uses: actions/upload-artifact@v4
+        with:
+          name: GuanpanPro-simulator-app
+          path: ${{ env.PROJECT_DIR }}/build/Build/Products/Debug-iphonesimulator/*.app
+          if-no-files-found: error
+          retention-days: 30

@@ -109,10 +109,12 @@ enum AIAnalysisService {
     private static func portfolioPrompt(_ data: PortfolioData) -> String {
         let fmt: (Double) -> String = { String(format: "%.2f", $0) }
         let holdings = data.holdings.map { h in
-            "- \(h.name)（\(h.code)，\(h.kind == .fund ? "场外基金" : "ETF/证券"）：份额 \(fmt(h.quantity))，成本 \(fmt(h.cost))，现价/净值 \(fmt(h.current))，市值 \(fmt(h.marketValue))，浮动盈亏 \(fmt(h.pnl))）"
+            let kindText = h.kind == .fund ? "场外基金" : "ETF/证券"
+            return "- \(h.name)（\(h.code)，\(kindText)：份额 \(fmt(h.quantity))，成本 \(fmt(h.cost))，现价/净值 \(fmt(h.current))，市值 \(fmt(h.marketValue))，浮动盈亏 \(fmt(h.pnl))）"
         }.joined(separator: "\n")
         let quotes = data.quotes.map { q in
-            "- \(q.name)（\(q.code)）：\(fmt(q.price))，涨跌 \(String(format: "%.2f", q.changePct * 100))%，更新时间 \(q.updatedAt?.formatted() ?? "未知")"
+            let updatedText = q.updatedAt?.formatted() ?? "未知"
+            return "- \(q.name)（\(q.code)）：\(fmt(q.price))，涨跌 \(String(format: "%.2f", q.changePct * 100))%，更新时间 \(updatedText)"
         }.joined(separator: "\n")
         let snapshots = data.snapshots.sorted { $0.date < $1.date }.suffix(20).map {
             "\($0.date): 总资产 \(fmt($0.total))，现金 \(fmt($0.cash))"
@@ -120,7 +122,12 @@ enum AIAnalysisService {
         let p = data.investmentProfile
         let style = ["day": "超短线", "swing": "波段", "mid": "中线", "long": "长线定投"][p.style] ?? p.style
         let risk = ["con": "保守", "bal": "平衡", "agg": "激进"][p.risk] ?? p.risk
-        let profile = "交易风格：\(style)；风险偏好：\(risk)；典型持有周期：\(p.horizon)；单标的仓位上限：\(fmt(p.maxPositionPercent))%；ETF 溢价敏感：\(p.premiumSensitive ? "是" : "否")；偏好：\(p.preference.isEmpty ? "未填写" : p.preference)；忌讳：\(p.avoid.isEmpty ? "未填写" : p.avoid)；交易方式：\(p.method.isEmpty ? "未填写" : p.method)；目标：\(p.goal.isEmpty ? "未填写" : p.goal)"
+        let premiumText = p.premiumSensitive ? "是" : "否"
+        let prefText = p.preference.isEmpty ? "未填写" : p.preference
+        let avoidText = p.avoid.isEmpty ? "未填写" : p.avoid
+        let methodText = p.method.isEmpty ? "未填写" : p.method
+        let goalText = p.goal.isEmpty ? "未填写" : p.goal
+        let profile = "交易风格：\(style)；风险偏好：\(risk)；典型持有周期：\(p.horizon)；单标的仓位上限：\(fmt(p.maxPositionPercent))%；ETF 溢价敏感：\(premiumText)；偏好：\(prefText)；忌讳：\(avoidText)；交易方式：\(methodText)；目标：\(goalText)"
         return "请分析以下观盘账户数据，按‘数据概况、观察到的变化、主要风险、还需核对’分段回答。只依据提供的数据；价格可能延迟，净值可能滞后。不要编造技术指标或新闻，也不要声称能确定预测涨跌。\n\n用户自述投资偏好（仅作为分析约束，不代表收益目标可实现）：\n\(profile)\n\n参考现金：\(fmt(data.cash))\n持仓：\n\(holdings.isEmpty ? "（暂无）" : holdings)\n\n自选行情：\n\(quotes.isEmpty ? "（暂无）" : quotes)\n\n最近资产快照：\n\(snapshots.isEmpty ? "（暂无）" : snapshots)"
     }
 }

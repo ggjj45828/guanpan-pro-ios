@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  说明：本文件与 project.yml 中 targets.GuanpanProNative.info.properties 保持一致。
+  CI 上 `xcodegen generate` 会依据 project.yml 重新生成同名文件，因此以 project.yml 为准，
+  这里保留一份等价内容便于本地查看与故障回退。
+-->
 <plist version="1.0">
 <dict>
     <key>CFBundleDevelopmentRegion</key>
@@ -26,6 +31,12 @@
     <dict/>
     <key>UIApplicationSupportsIndirectInputEvents</key>
     <true/>
+    <key>UISupportedInterfaceOrientations</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+        <string>UIInterfaceOrientationLandscapeLeft</string>
+        <string>UIInterfaceOrientationLandscapeRight</string>
+    </array>
     <key>UIBackgroundModes</key>
     <array>
         <string>fetch</string>
@@ -33,6 +44,8 @@
     <key>NSAppTransportSecurity</key>
     <dict>
         <key>NSAllowsArbitraryLoads</key>
+        <true/>
+        <key>NSAllowsLocalNetworking</key>
         <true/>
     </dict>
 </dict>

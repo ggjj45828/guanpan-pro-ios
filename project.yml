@@ -11,24 +11,23 @@ targets:
   GuanpanProNative:
     type: application
     platform: iOS
-    path: .
     sources:
-      - path: Sources
+      - Sources
     info:
       properties:
         UIBackgroundModes:
           - fetch
         NSLocalNetworkUsageDescription: "连接你在设置中填写的 NAS 地址，用于同步观盘 Pro 本机账本和行情历史缓存。"
         NSAppTransportSecurity:
-          NSAllowsLocalNetworking: true
+          NSAllowsLocalNetworking: "true"
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.guanpan.pro.native
         PRODUCT_NAME: 观盘 Pro
         INFOPLIST_KEY_CFBundleDisplayName: 观盘 Pro
-        INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
-        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: "YES"
+        INFOPLIST_KEY_UILaunchScreen_Generation: "YES"
         TARGETED_DEVICE_FAMILY: "1"
-        SUPPORTS_MACCATALYST: NO
+        SUPPORTS_MACCATALYST: "NO"
     scheme:
       gatherCoverageData: false

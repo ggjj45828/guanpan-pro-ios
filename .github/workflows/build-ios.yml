@@ -47,7 +47,7 @@ jobs:
       - name: 生成 Xcode 工程
         run: |
           cd "$PROJECT_DIR"
-          xcodegen generate --spec project.yml
+          xcodegen generate --spec project.yml -v
           ls -la
 
       - name: 编译 (真机 SDK，不签名)
@@ -119,7 +119,7 @@ jobs:
       - name: 生成 Xcode 工程
         run: |
           cd "$PROJECT_DIR"
-          xcodegen generate --spec project.yml
+          xcodegen generate --spec project.yml -v
 
       - name: 编译 (模拟器 SDK，不签名)
         run: |

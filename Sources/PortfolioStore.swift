@@ -737,7 +737,8 @@ final class PortfolioStore: ObservableObject {
                     let startWeekday = calendar.component(.weekday, from: startDate)
                     if sameWeek && plan.weekday < startWeekday && !(startWeekday == 1 || startWeekday == 7) { return nil }
                 }
-                points.sorted { $0.date < $1.date }.first { point in
+                let sortedPoints = points.sorted { $0.date < $1.date }
+                return sortedPoints.first { point in
                     guard let date = parseDay(point.date) else { return false }
                     return calendar.component(.weekday, from: date) >= plan.weekday
                 }
@@ -771,7 +772,8 @@ final class PortfolioStore: ObservableObject {
                 let monthDate = parseDay(month + "-01")
                 let range = monthDate.flatMap { calendar.range(of: .day, in: .month, for: $0) }
                 let targetDay = min(plan.monthDay, range?.count ?? plan.monthDay)
-                points.sorted { $0.date < $1.date }.first { point in
+                let sortedPoints = points.sorted { $0.date < $1.date }
+                return sortedPoints.first { point in
                     guard let date = parseDay(point.date) else { return false }
                     return calendar.component(.day, from: date) >= targetDay
                 }
